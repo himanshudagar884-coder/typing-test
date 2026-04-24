@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pro Typing Master</title>
+    <title>Typing Master Ultra</title>
     <style>
         body {
-            background-color: #f0f2f5;
-            color: #1c1e21;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: 'Courier New', Courier, monospace;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -16,49 +16,43 @@
             margin: 0;
             min-height: 100vh;
         }
-        .container { width: 100%; max-width: 600px; }
-        h1 { color: #2d3436; text-align: center; font-size: 1.8rem; margin-bottom: 20px; }
+        .container { width: 100%; max-width: 500px; }
+        h1 { color: #38bdf8; text-align: center; font-size: 1.5rem; }
         
         .stats-bar {
             display: flex;
             justify-content: space-around;
-            background: white;
-            padding: 15px;
+            background: #1e293b;
+            padding: 12px;
             border-radius: 12px;
             margin-bottom: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border: 1px solid #334155;
         }
-        .stat-value { display: block; font-size: 1.4rem; font-weight: bold; color: #0984e3; }
-        .stat-label { font-size: 0.75rem; text-transform: uppercase; color: #636e72; }
+        .stat-value { display: block; font-size: 1.1rem; font-weight: bold; color: #38bdf8; }
+        .stat-label { font-size: 0.65rem; text-transform: uppercase; color: #94a3b8; }
 
         .typing-box {
-            background: white;
-            padding: 25px;
+            background: #1e293b;
+            padding: 20px;
             border-radius: 12px;
-            line-height: 2;
-            font-size: 1.3rem;
+            line-height: 1.8;
+            font-size: 1.2rem;
             height: 250px;
-            border: 1px solid #dfe6e9;
+            border: 2px solid #334155;
             position: relative;
             margin-bottom: 20px;
             word-wrap: break-word;
             overflow-y: auto;
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
             scroll-behavior: smooth;
         }
 
-        /* Standard Typing Colors */
-        .char-untouched { color: #b2bec3; }
-        .char-correct { color: #2d3436; }
-        .char-incorrect { background-color: #ff7675; color: white; border-radius: 2px; }
+        .char-untouched { color: #64748b; }
+        .char-correct { color: #4ade80; }
+        .char-incorrect { background-color: #ef4444; color: white; border-radius: 2px; }
         .char-current { 
-            background-color: #74b9ff; 
-            color: white;
-            border-radius: 2px;
-            animation: blink 1s infinite;
+            border-bottom: 3px solid #38bdf8; 
+            background-color: rgba(56, 189, 248, 0.2); 
         }
-
-        @keyframes blink { 50% { opacity: 0.7; } }
 
         #hidden-input {
             position: absolute;
@@ -74,13 +68,11 @@
             padding: 18px;
             border-radius: 12px;
             border: none;
-            background: #0984e3;
-            color: white;
+            background: #38bdf8;
+            color: #0f172a;
             font-weight: bold;
             font-size: 1.1rem;
-            box-shadow: 0 4px 15px rgba(9, 132, 227, 0.3);
         }
-        button:active { transform: scale(0.98); }
     </style>
 </head>
 <body>
@@ -100,7 +92,7 @@
         </div>
 
         <div id="display-container" class="typing-box" onclick="focusInput()">
-            Click START to load a 300-word English challenge...
+            Click START for a random 300-word challenge...
         </div>
 
         <input type="text" id="hidden-input" autocomplete="off" spellcheck="false">
@@ -115,32 +107,27 @@
         const wpmDisplay = document.getElementById('wpm');
         const timerDisplay = document.getElementById('timer');
 
+        const typeSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
+
         let startTime, timerInterval;
         let isRunning = false;
         let targetQuote = "";
-
-        // High-quality mechanical click sound
-        const typeSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
 
         function focusInput() {
             hiddenInput.focus();
         }
 
-        async function fetchEnglishParagraph() {
-            displayContainer.innerHTML = "Loading English text...";
+        // FETCHES RANDOM ENGLISH TEXT (300 WORDS)
+        async function fetchRandomText() {
+            displayContainer.innerHTML = "Fetching random 300-word text...";
             try {
-                // Using an English Quote API and repeating to reach word count
-                let combinedText = "";
-                while (combinedText.split(" ").length < 250) {
-                    const response = await fetch('https://api.quotable.io/random?maxLength=150');
-                    const data = await response.json();
-                    combinedText += data.content + " ";
-                }
-                targetQuote = combinedText.trim();
+                // Fetching multiple paragraphs to ensure it hits the 300-word mark
+                const response = await fetch('https://metaphorpsum.com/paragraphs/3/5');
+                if (!response.ok) throw new Error();
+                targetQuote = await response.text();
                 renderChars();
             } catch (e) {
-                targetQuote = "Error loading text. Please ensure you are connected to the internet and try again.";
-                renderChars();
+                displayContainer.innerHTML = "Internet error. Tap RESTART to try again.";
             }
         }
 
@@ -156,15 +143,13 @@
         }
 
         function startTest() {
-            // Unlock audio for mobile
-            typeSound.play().then(() => {
-                typeSound.pause();
-                typeSound.currentTime = 0;
-            }).catch(() => {});
+            // Unlock audio
+            typeSound.play().then(() => { typeSound.pause(); typeSound.currentTime = 0; }).catch(() => {});
 
             isRunning = false;
             clearInterval(timerInterval);
-            fetchEnglishParagraph().then(() => {
+            
+            fetchRandomText().then(() => {
                 hiddenInput.value = "";
                 focusInput();
                 wpmDisplay.innerText = "0";
@@ -187,9 +172,8 @@
         }
 
         hiddenInput.addEventListener('input', () => {
-            // Typing.com style click
             const click = typeSound.cloneNode();
-            click.volume = 0.5;
+            click.volume = 0.4;
             click.play();
 
             const arrayChars = displayContainer.querySelectorAll('span');
@@ -213,12 +197,8 @@
                 }
             });
 
-            // Improved Auto-Scroll
             if (currentSpan) {
-                currentSpan.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'center'
-                });
+                currentSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
 
             if (hiddenInput.value.length >= targetQuote.length) {
