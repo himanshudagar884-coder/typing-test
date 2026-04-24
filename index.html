@@ -37,6 +37,176 @@
             border-radius: 12px;
             line-height: 1.6;
             font-size: 1.2rem;
+            min-height: 250px;
+            border: 2px solid #334155;
+            position: relative;
+            margin-bottom: 20px;
+            word-wrap: break-word;
+            overflow-y: auto;
+            max-height: 400px;
+        }
+
+        .char-correct { color: #4ade80; }
+        .char-incorrect { background-color: #ef4444; color: white; border-radius: 2px; }
+        .char-current { border-bottom: 3px solid #38bdf8; background-color: rgba(56, 189, 248, 0.2); }
+        .char-untouched { color: #94a3b8; }
+
+        #hidden-input {
+            position: absolute;
+            opacity: 0;
+            top: 0;
+            left: 0;
+            width: 1px;
+            height: 1px;
+        }
+
+        button {
+            width: 100%;
+            padding: 18px;
+            border-radius: 12px;
+            border: none;
+            background: #38bdf8;
+            color: #0f172a;
+            font-weight: bold;
+            font-size: 1.1rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Typing Pro (Wiki Edition)</h1>
+        
+        <div class="stats-bar">
+            <div style="text-align:center">
+                <span id="wpm" class="stat-value">0</span>
+                <span class="stat-label">WPM</span>
+            </div>
+            <div style="text-align:center">
+                <span id="timer" class="stat-value">0</span>
+                <span class="stat-label">Seconds</span>
+            </div>
+        </div>
+
+        <div id="display-container" class="typing-box" onclick="focusInput()">
+            Click START for a random Wikipedia challenge...
+        </div>
+
+        <input type="text" id="hidden-input" autocomplete="off" spellcheck="false">
+
+        <button id="action-btn">START TEST</button>
+    </div>
+
+    <script>
+        const displayContainer = document.getElementById('display-container');
+        const hiddenInput = document.getElementById('hidden-input');
+        const actionBtn = document.getElementById('action-btn');
+        const wpmDisplay = document.getElementById('wpm');
+        const timerDisplay = document.getElementById('timer');
+
+        let startTime, timerInterval;
+        let isRunning = false;
+        let targetQuote = "";
+
+        // Typing Sound (Mechanical Click)
+        const typeSound = new Audio('https://www.soundjay.com/communication/typewriter-key-1.mp3');
+
+        function focusInput() {
+            hiddenInput.focus();
+        }
+
+        async function fetchNewParagraph() {
+            displayContainer.innerHTML = "Fetching random Wikipedia article...";
+            try {
+                // Get a random long summary from Wikipedia
+                const response = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
+                const data = await response.json();
+                
+                // If it's too short, try again automatically
+                if (data.extract.length < 150) return fetchNewParagraph();
+                
+                targetQuote = data.extract.trim();
+                renderChars();
+            } catch (e) {
+                targetQuote = "Internet error. Please check your connection and try again.";
+                renderChars();
+            }
+        }
+
+        function renderChars() {
+            displayContainer.innerHTML = "";
+            targetQuote.split('').forEach(char => {
+                const span = document.createElement('span');
+                span.innerText = char;
+                span.classList.add('char-untouched');
+                displayContainer.appendChild(span);
+            });
+            if(displayContainer.firstChild) displayContainer.firstChild.classList.add('char-current');
+        }
+
+        function startTest() {
+            isRunning = false;
+            clearInterval(timerInterval);
+            fetchNewParagraph().then(() => {
+                hiddenInput.value = "";
+                focusInput();
+                wpmDisplay.innerText = "0";
+                timerDisplay.innerText = "0";
+                startTime = new Date();
+                isRunning = true;
+                actionBtn.innerText = "RESTART";
+                timerInterval = setInterval(updateStats, 1000);
+            });
+        }
+
+        function updateStats() {
+            const timePassed = Math.floor((new Date() - startTime) / 1000);
+            timerDisplay.innerText = timePassed;
+            if (timePassed > 0) {
+                const charCount = hiddenInput.value.length;
+                const wpm = Math.round((charCount / 5) / (timePassed / 60));
+                wpmDisplay.innerText = wpm > 0 ? wpm : 0;
+            }
+        }
+
+        hiddenInput.addEventListener('input', () => {
+            // Play sound on every key press
+            typeSound.currentTime = 0;
+            typeSound.play();
+
+            const arrayChars = displayContainer.querySelectorAll('span');
+            const arrayInput = hiddenInput.value.split('');
+
+            arrayChars.forEach((charSpan, index) => {
+                const character = arrayInput[index];
+                charSpan.classList.remove('char-correct', 'char-incorrect', 'char-current');
+                
+                if (character == null) {
+                    charSpan.classList.add('char-untouched');
+                    if (index === arrayInput.length) charSpan.classList.add('char-current');
+                } else if (character === charSpan.innerText) {
+                    charSpan.classList.add('char-correct');
+                } else {
+                    charSpan.classList.add('char-incorrect');
+                }
+            });
+
+            if (hiddenInput.value.length >= targetQuote.length) {
+                clearInterval(timerInterval);
+                isRunning = false;
+                actionBtn.innerText = "START NEW";
+                alert(`Test Finished! Speed: ${wpmDisplay.innerText} WPM`);
+            }
+        });
+
+        actionBtn.onclick = startTest;
+    </script>
+</body>
+</html>
+            border-radius: 12px;
+            line-height: 1.6;
+            font-size: 1.2rem;
             min-height: 200px;
             border: 2px solid #334155;
             position: relative;
