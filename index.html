@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Typing Master Ultra</title>
+<title>Typing Master Pro</title>
 
 <style>
 body {
     background:#0f172a;
-    color:#f8fafc;
+    color:#fff;
     font-family: monospace;
     display:flex;
     justify-content:center;
@@ -20,16 +20,19 @@ body {
 
 h1 { text-align:center; color:#38bdf8; }
 
-.stats-bar {
+.mode-select {
     display:flex;
-    justify-content:space-around;
-    background:#1e293b;
-    padding:10px;
-    border-radius:10px;
+    gap:5px;
     margin-bottom:10px;
 }
-.stat-value { font-size:18px; color:#38bdf8; }
-.stat-label { font-size:12px; }
+.mode-select button {
+    flex:1;
+    padding:10px;
+    background:#1e293b;
+    color:#fff;
+    border:none;
+    border-radius:8px;
+}
 
 .typing-box {
     background:#1e293b;
@@ -44,21 +47,19 @@ h1 { text-align:center; color:#38bdf8; }
 .char-untouched { color:#64748b; }
 .char-correct { color:#4ade80; }
 .char-incorrect { background:#ef4444; color:#fff; }
-.char-current { border-bottom:2px solid #38bdf8; }
 
-#hidden-input {
+#input {
     opacity:0;
     position:absolute;
 }
 
-button {
+button.start {
     width:100%;
     padding:12px;
     margin-top:10px;
     background:#38bdf8;
     border:none;
     border-radius:10px;
-    font-weight:bold;
 }
 </style>
 </head>
@@ -68,129 +69,173 @@ button {
 <div class="container">
 <h1>Typing Test</h1>
 
-<div class="stats-bar">
-<div><span id="wpm" class="stat-value">0</span><div class="stat-label">WPM</div></div>
-<div><span id="timer" class="stat-value">0</span><div class="stat-label">SEC</div></div>
+<div class="mode-select">
+<button onclick="setTime(180)">3 Min</button>
+<button onclick="setTime(300)">5 Min</button>
+<button onclick="setTime(600)">10 Min</button>
 </div>
+
+<div id="timer" style="text-align:center;margin-bottom:10px;">Select Time</div>
 
 <div id="display" class="typing-box" onclick="input.focus()"></div>
 
 <input id="input" type="text">
-<button onclick="startTest()">START</button>
+<button class="start" onclick="startTest()">START</button>
+
+<div id="result"></div>
 </div>
 
 <script>
 const display = document.getElementById("display");
 const input = document.getElementById("input");
-const wpmEl = document.getElementById("wpm");
 const timerEl = document.getElementById("timer");
+const result = document.getElementById("result");
 
-let text = "";
-let startTime = null;
+let targetText = "";
+let timeLimit = 0;
+let timeLeft = 0;
 let timer = null;
 let started = false;
 
-/* ---------------- TEXT ---------------- */
-async function getText(){
-    try{
-        const r = await fetch("https://api.quotable.io/random");
-        const d = await r.json();
-        text = d.content;
-    }catch{
-        text = "Practice typing daily to improve your speed and accuracy.";
+// stats
+let totalTyped = 0;
+let correct = 0;
+let mistakes = 0;
+
+/* -------- WIKIPEDIA TEXT -------- */
+async function getWikiText() {
+    try {
+        const r1 = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
+        const d1 = await r1.json();
+
+        const r2 = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
+        const d2 = await r2.json();
+
+        const newText = (d1.extract + " " + d2.extract).replace(/[\n\r]+/g," ");
+
+        targetText += " " + newText; // append (continuous typing)
+        render();
+    } catch {
+        targetText += " Practice typing improves speed and accuracy.";
+        render();
     }
-    render();
 }
 
-function render(){
+/* -------- RENDER -------- */
+function render() {
     display.innerHTML = "";
-    text.split("").forEach(c=>{
+    targetText.split("").forEach((c, i) => {
         const span = document.createElement("span");
         span.innerText = c;
         span.className = "char-untouched";
         display.appendChild(span);
     });
-    display.firstChild.classList.add("char-current");
 }
 
-/* ---------------- START ---------------- */
-function startTest(){
+/* -------- TIME SELECT -------- */
+function setTime(sec) {
+    timeLimit = sec;
+    timerEl.innerText = "Time: " + (sec/60) + " min";
+}
+
+/* -------- START -------- */
+async function startTest() {
+    if (timeLimit === 0) {
+        alert("Select time first");
+        return;
+    }
+
     input.value = "";
-    startTime = null;
+    targetText = "";
+    totalTyped = 0;
+    correct = 0;
+    mistakes = 0;
+
+    result.innerHTML = "";
     started = false;
-    timerEl.innerText = 0;
-    wpmEl.innerText = 0;
     clearInterval(timer);
+
+    timeLeft = timeLimit;
+
+    await getWikiText(); // initial load
     input.focus();
-    getText();
 }
 
-/* ---------------- TIMER ---------------- */
-function startTimer(){
-    startTime = new Date();
-    timer = setInterval(()=>{
-        const sec = Math.floor((new Date() - startTime)/1000);
-        timerEl.innerText = sec;
+/* -------- TIMER -------- */
+function startTimer() {
+    timer = setInterval(() => {
+        timeLeft--;
+        timerEl.innerText = "Time Left: " + timeLeft + "s";
 
-        const correct = document.querySelectorAll(".char-correct").length;
-        const wpm = Math.round((correct/5)/(sec/60));
-        wpmEl.innerText = sec>0 ? wpm : 0;
-    },1000);
+        if (timeLeft <= 0) {
+            clearInterval(timer);
+            finishTest();
+        }
+    }, 1000);
 }
 
-/* ---------------- SOUND FIX ---------------- */
+/* -------- SOUND -------- */
 const audio = new Audio("https://www.soundjay.com/communication/typewriter-key-1.mp3");
 let lastSound = 0;
 
-function playSound(){
+function playSound() {
     const now = Date.now();
-    if(now - lastSound < 80) return;
+    if (now - lastSound < 70) return;
     lastSound = now;
-
     audio.currentTime = 0;
     audio.play().catch(()=>{});
 }
 
-/* ---------------- INPUT ---------------- */
-input.addEventListener("input", ()=>{
-    if(!started){
+/* -------- INPUT -------- */
+input.addEventListener("input", async () => {
+
+    if (!started) {
         started = true;
-        startTimer(); // ✅ timer starts on first typing
+        startTimer(); // start on typing
     }
 
     playSound();
 
     const chars = display.querySelectorAll("span");
-    const val = input.value.split("");
+    const val = input.value;
 
-    chars.forEach((span, i)=>{
-        span.classList.remove("char-correct","char-incorrect","char-current");
+    totalTyped++;
 
-        if(val[i]==null){
-            span.classList.add("char-untouched");
-            if(i===val.length) span.classList.add("char-current");
-        }else if(val[i]===span.innerText){
-            span.classList.add("char-correct");
-        }else{
-            span.classList.add("char-incorrect");
+    const index = val.length - 1;
+    if (chars[index]) {
+        if (val[index] === chars[index].innerText) {
+            correct++;
+            chars[index].className = "char-correct";
+        } else {
+            mistakes++;
+            chars[index].className = "char-incorrect";
         }
-    });
-
-    /* -------- AUTO SCROLL FIX -------- */
-    const current = document.querySelector(".char-current");
-    if(current){
-        current.scrollIntoView({
-            behavior:"smooth",
-            block:"center"
-        });
     }
 
-    /* -------- FINISH -------- */
-    if(input.value.length >= text.length){
-        clearInterval(timer);
-        alert("Finished! WPM: " + wpmEl.innerText);
+    // auto scroll
+    if (chars[index]) {
+        chars[index].scrollIntoView({block:"center"});
+    }
+
+    // load more text when near end
+    if (val.length > targetText.length - 100) {
+        await getWikiText();
     }
 });
+
+/* -------- RESULT -------- */
+function finishTest() {
+    const accuracy = totalTyped > 0 ? Math.round((correct / totalTyped) * 100) : 0;
+    const wpm = Math.round((correct / 5) / (timeLimit / 60));
+
+    result.innerHTML = `
+        <h2>Result</h2>
+        <p>WPM: ${wpm}</p>
+        <p>Keystrokes: ${totalTyped}</p>
+        <p>Mistakes: ${mistakes}</p>
+        <p>Accuracy: ${accuracy}%</p>
+    `;
+}
 </script>
 
 </body>
