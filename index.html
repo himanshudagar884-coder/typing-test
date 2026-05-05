@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Typing Master Pro</title>
+<title>Typing Speed Test</title>
 
 <style>
 body {
@@ -16,50 +16,36 @@ body {
     height:100vh;
     margin:0;
 }
-.container { width:95%; max-width:500px; }
-
-h1 { text-align:center; color:#38bdf8; }
-
-.mode-select {
-    display:flex;
-    gap:5px;
-    margin-bottom:10px;
+.container {
+    width:90%;
+    max-width:500px;
+    text-align:center;
 }
-.mode-select button {
-    flex:1;
-    padding:10px;
-    background:#1e293b;
-    color:#fff;
-    border:none;
-    border-radius:8px;
-}
+h1 { color:#38bdf8; }
 
-.typing-box {
-    background:#1e293b;
-    padding:15px;
-    border-radius:10px;
+textarea {
+    width:100%;
     height:200px;
-    overflow-y:auto;
-    line-height:2;
-    font-size:18px;
+    padding:10px;
+    border-radius:10px;
+    border:none;
+    font-size:16px;
+    outline:none;
 }
 
-.char-untouched { color:#64748b; }
-.char-correct { color:#4ade80; }
-.char-incorrect { background:#ef4444; color:#fff; }
-
-#input {
-    opacity:0;
-    position:absolute;
-}
-
-button.start {
+button {
     width:100%;
     padding:12px;
     margin-top:10px;
-    background:#38bdf8;
     border:none;
     border-radius:10px;
+    background:#38bdf8;
+    font-weight:bold;
+}
+
+#result {
+    margin-top:15px;
+    font-size:18px;
 }
 </style>
 </head>
@@ -67,174 +53,49 @@ button.start {
 <body>
 
 <div class="container">
-<h1>Typing Test</h1>
+<h1>Typing Speed Test</h1>
 
-<div class="mode-select">
-<button onclick="setTime(180)">3 Min</button>
-<button onclick="setTime(300)">5 Min</button>
-<button onclick="setTime(600)">10 Min</button>
-</div>
+<textarea id="text" placeholder="Start typing your paragraph..."></textarea>
 
-<div id="timer" style="text-align:center;margin-bottom:10px;">Select Time</div>
-
-<div id="display" class="typing-box" onclick="input.focus()"></div>
-
-<input id="input" type="text">
-<button class="start" onclick="startTest()">START</button>
+<button onclick="startTyping()">Start</button>
+<button onclick="finishTyping()">Finish</button>
 
 <div id="result"></div>
 </div>
 
 <script>
-const display = document.getElementById("display");
-const input = document.getElementById("input");
-const timerEl = document.getElementById("timer");
-const result = document.getElementById("result");
+let startTime = null;
 
-let targetText = "";
-let timeLimit = 0;
-let timeLeft = 0;
-let timer = null;
-let started = false;
-
-// stats
-let totalTyped = 0;
-let correct = 0;
-let mistakes = 0;
-
-/* -------- WIKIPEDIA TEXT -------- */
-async function getWikiText() {
-    try {
-        const r1 = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
-        const d1 = await r1.json();
-
-        const r2 = await fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary');
-        const d2 = await r2.json();
-
-        const newText = (d1.extract + " " + d2.extract).replace(/[\n\r]+/g," ");
-
-        targetText += " " + newText; // append (continuous typing)
-        render();
-    } catch {
-        targetText += " Practice typing improves speed and accuracy.";
-        render();
-    }
+function startTyping(){
+    document.getElementById("text").value = "";
+    document.getElementById("result").innerHTML = "";
+    startTime = null; // wait for first keystroke
 }
 
-/* -------- RENDER -------- */
-function render() {
-    display.innerHTML = "";
-    targetText.split("").forEach((c, i) => {
-        const span = document.createElement("span");
-        span.innerText = c;
-        span.className = "char-untouched";
-        display.appendChild(span);
-    });
-}
-
-/* -------- TIME SELECT -------- */
-function setTime(sec) {
-    timeLimit = sec;
-    timerEl.innerText = "Time: " + (sec/60) + " min";
-}
-
-/* -------- START -------- */
-async function startTest() {
-    if (timeLimit === 0) {
-        alert("Select time first");
-        return;
-    }
-
-    input.value = "";
-    targetText = "";
-    totalTyped = 0;
-    correct = 0;
-    mistakes = 0;
-
-    result.innerHTML = "";
-    started = false;
-    clearInterval(timer);
-
-    timeLeft = timeLimit;
-
-    await getWikiText(); // initial load
-    input.focus();
-}
-
-/* -------- TIMER -------- */
-function startTimer() {
-    timer = setInterval(() => {
-        timeLeft--;
-        timerEl.innerText = "Time Left: " + timeLeft + "s";
-
-        if (timeLeft <= 0) {
-            clearInterval(timer);
-            finishTest();
-        }
-    }, 1000);
-}
-
-/* -------- SOUND -------- */
-const audio = new Audio("https://www.soundjay.com/communication/typewriter-key-1.mp3");
-let lastSound = 0;
-
-function playSound() {
-    const now = Date.now();
-    if (now - lastSound < 70) return;
-    lastSound = now;
-    audio.currentTime = 0;
-    audio.play().catch(()=>{});
-}
-
-/* -------- INPUT -------- */
-input.addEventListener("input", async () => {
-
-    if (!started) {
-        started = true;
-        startTimer(); // start on typing
-    }
-
-    playSound();
-
-    const chars = display.querySelectorAll("span");
-    const val = input.value;
-
-    totalTyped++;
-
-    const index = val.length - 1;
-    if (chars[index]) {
-        if (val[index] === chars[index].innerText) {
-            correct++;
-            chars[index].className = "char-correct";
-        } else {
-            mistakes++;
-            chars[index].className = "char-incorrect";
-        }
-    }
-
-    // auto scroll
-    if (chars[index]) {
-        chars[index].scrollIntoView({block:"center"});
-    }
-
-    // load more text when near end
-    if (val.length > targetText.length - 100) {
-        await getWikiText();
+/* START TIMER ON FIRST KEYSTROKE */
+document.getElementById("text").addEventListener("input", () => {
+    if (!startTime) {
+        startTime = new Date();
     }
 });
 
-/* -------- RESULT -------- */
-function finishTest() {
-    const accuracy = totalTyped > 0 ? Math.round((correct / totalTyped) * 100) : 0;
-    const wpm = Math.round((correct / 5) / (timeLimit / 60));
+function finishTyping(){
+    if(!startTime){
+        alert("Start typing first");
+        return;
+    }
 
-    result.innerHTML = `
-        <h2>Result</h2>
-        <p>WPM: ${wpm}</p>
-        <p>Keystrokes: ${totalTyped}</p>
-        <p>Mistakes: ${mistakes}</p>
-        <p>Accuracy: ${accuracy}%</p>
-    `;
+    const text = document.getElementById("text").value;
+    const endTime = new Date();
+
+    const timeInMinutes = (endTime - startTime) / 1000 / 60;
+
+    const keystrokes = text.length; // ✅ total characters typed
+
+    const wpm = Math.round((keystrokes / 5) / timeInMinutes);
+
+    document.getElementById("result").innerHTML =
+        "WPM: " + (wpm > 0 ? wpm : 0);
 }
 </script>
 
